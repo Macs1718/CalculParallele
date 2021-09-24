@@ -1,0 +1,1021 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage{graphicx}
+\usepackage{longtable}
+\usepackage{float}
+\usepackage{wrapfig}
+%\usepackage{rotating}
+%\usepackage{a4wide}
+%\usepackage[normalem]{ulem}
+\usepackage{amsmath}
+\usepackage{textcomp}
+%\usepackage{marvosym}
+%\usepackage{wasysym}
+\usepackage{amssymb}
+\usepackage{hyperref}
+%\usepackage[utf8]{inputenc}
+%\usepackage[T1]{fontenc}
+\usepackage{polyglossia}
+\setmainlanguage[]{french}
+\usepackage{listings}
+
+\usepackage[top=30pt,bottom=30pt,left=48pt,right=46pt]{geometry}
+
+\usepackage[dvipsnames]{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{shadows,shadows.blur, trees,matrix,arrows,decorations}
+\usetikzlibrary{decorations.pathmorphing, fadings, shapes, shapes.arrows, positioning, calc, shapes,fit}
+\usepackage{fp}
+\usepackage{pgfplots}
+\tolerance=1000
+\author{Xavier JUVIGNY}
+\date{\today}
+\title{Travaux dirigés n°1}
+
+\definecolor{verylightgray}{rgb}{0.95 0.95 1.0}
+
+\definecolor{darkblue}{rgb}{0. 0. 0.4}
+
+
+\lstdefinestyle{customcpp}
+{
+    breaklines=true,
+    frame=shadow,
+    xleftmargin=\parindent,
+    language=C++,
+    showstringspaces=false,
+    basicstyle=\small\ttfamily,
+    keywordstyle=\small\bfseries\color{green!40!black},
+    commentstyle=\small\itshape\color{purple!40!black},
+    identifierstyle=\small\color{blue},
+    stringstyle=\small\color{orange!60!black},
+}
+
+\lstset{escapechar=@,style=customcpp}
+\newcommand{\includecode}[2][cpp]{
+\lstinputlisting[escapechar=, style=custom#1]{#2}
+}
+
+\newcommand{\includepartcode}[4][cpp]{
+\lstinputlisting[escapechar=, firstline=#3, lastline=#4, style=custom#1]{#2}
+}
+
+\begin{document}
+\lstset{%
+  basicstyle=\scriptsize,
+  frame=single,
+  keywordstyle=\color{blue},
+  language=C++,
+  commentstyle=\color{red},
+  stringstyle=\color{brown},
+  keepspaces=true,
+  showspaces=false,
+  tabsize=2
+}
+\lstset{escapechar=@,style=customcpp}
+
+\maketitle
+\tableofcontents
+
+
+\section{Une introduction à MPI} 
+\subsection{Une spécification d'interface}
+
+Le standard MPI (\textcolor{blue}{M}essage \textcolor{blue}{P}assing \textcolor{blue}{I}nterface) est une 
+\textbf{sp\'ecification} pour les d\'eveloppeurs et
+les utilisateurs d'une librairie d'\'echange de messages. En soi, ce n'est pas un bibliothèque, mais plut\^ot
+les sp\'ecifications de ce qu'une telle biblioth\`eque devrait \^etre.
+
+MPI propose fondamentalement un \textsl{mod\`ele de programmation parall\`ele par \'echange de messsage} : les donn\'ees sont d\'eplac\'ees
+d'un espace d'adressage d'un processus \`a l'espace d'adressage d'un autre processus \`a l'aide d'op\'erations
+coop\'eratives sur chacun des processus.
+
+Autrement dit, le but de cet interface est de proposer un standard largement utilis\'e
+pour \'ecrire des programmes par \'echanges de messages. L'interface tente d'\^etre :
+\begin{itemize}
+\item Pratique
+\item Portable
+\item Optimis\'ee
+\item Flexible
+\end{itemize}
+
+Les sp\'ecifications de l'interface ont \'et\'e' d\'efinies pour les langages C et Fortran 90. 
+La troisi\`eme version des
+sp\'ecifications de MPI propose \'egalement un support pour les langages Fortran 2003 et Fortran 2008.
+
+En fait, les diverses bilioth\`eques MPI existantes diff\`erent dans les caract\'eristiques et la version de
+sp\'ecification qu'elles supportent. Les utilisateurs de ces biblioth\`eques doivent en avoir conscience.
+
+\subsection{Mod\`ele de programmation}
+
+\`A l'origine, MPI a été con\c{c}u pour des architectures \`a m\'emoires distribu\'ees qui avaient commenc\'e \`a \'emerger \`a
+cette \'epoque (fin des ann\'ees 1980 -- début des ann\'ees 1990).
+
+Au fur et \`a mesure du changement des architectures des ordinateurs, les mises en {\oe}uvres de MPI ont adapt\'e leurs
+biblioth\`eques aux architectures multi-c{\oe}urs avec m\'emoire partag\'ee et aux diff\'erents protocoles r\'eseaux.
+
+Aujourd'hui, MPI s'ex\'ecute sur virtuellement n'importe quelle plateforme :
+\begin{itemize}
+\item en m\'emoire distribu\'ee;
+\item en m\'emoire partag\'ee;
+\item en m\'emoire hybride (distribu\'ee et partag\'ee).
+\end{itemize}
+
+N\'eanmoins, le mod\`ele de programmation reste clairement un mod\`ele de \textbf{programmation sur m\'emoire distribu\'ee} sans 
+consid\'eration sur l'architecture sous-jacente de la machine.
+
+\textbf{Tout parall\'elisme est explicite} : le programmeur a la responsabilité d'identifier correctement le parall\'elisme
+et doit mettre en {\oe}uvre ses algorithmes parall\`eles en utilisant l'interface MPI.
+
+\subsection{Structure g\'en\'erale d'un programme MPI}
+
+\begin{center}
+\begin{tikzpicture}
+\node[draw,fill=Aquamarine, blur shadow={shadow blur steps=5}] (include) {MPI include file};
+\node[below = 2ex of include.south] (decl) {D\'eclarations, prototypes, etc.};
+\node[below = 2ex of decl.south] (begin) {D\'ebut du programme};
+\node[below = 2ex of begin.east] (serial) {Code s\'equentiel};
+\node[below = 4ex of begin.south, draw,fill=Aquamarine, blur shadow={shadow blur steps=5}] (init) {Initialisation de l'environnement MPI};
+\node[right = 2em of init.east] (debpar) {\bf Début du code parallèle};
+\node[below = 5ex of init.south, draw,fill=Aquamarine, blur shadow={shadow blur steps=5}] (parallel) {Code parall\`ele utilisant les \'echanges de message};
+\node[below = 3ex of parallel.south, draw,fill=Aquamarine, blur shadow={shadow blur steps=5}] (finalize) {Terminaison de l'environnement MPI};
+\node[right = 3em of finalize.east] (endpar) {\bf Fin du code parall\`ele};
+\node[below = 25ex of begin.east] (serial2) {Code s\'equentiel};
+\node[below = 4ex of finalize.south] (Fin) {Fin du programme};
+\draw[dashed,red] (begin) -- (init);
+\draw[dashed,red] (init) -- (parallel);
+\draw[dashed,red] (parallel) -- (finalize);
+\draw[dashed,red] (finalize) -- (Fin);
+\end{tikzpicture}
+\end{center}
+
+Le fichier d'entête est nécessaire pour toute utilisation de la bibliothèque MPI :
+
+\begin{lstlisting}[style=customcpp]
+# include <mpi.h>
+\end{lstlisting}
+
+Les fonctions de l'interface MPI sont de la forme : \texttt{rc = MPI\_Xxxxxxxx(paramètre, paramètre, ....)}.
+
+Par exemple, 
+\begin{lstlisting}[style=customcpp]
+int rc = MPI_Bsend(&buf, count, type, dest, tag, comm );
+\end{lstlisting}
+
+La valeur entière retournée est un code d'erreur. Si aucune erreur n'a été rencontrée, la valeur retournée
+vaut \texttt{MPI\_SUCCESS}. Mais, selon le standard MPI, le comportement par défaut d'un appel MPI est
+de quitter si il y a une erreur. Cela signifie que vous ne serez pas capable de capturer un code d'erreur
+autre que \texttt{MPI\_SUCCESS}. Les types d'erreurs affichés à destination de l'utilisateur dépendent de la mise en
+{\oe}uvre de MPI.
+
+\subsection{Communicateurs et groupe}
+
+MPI utilise des objets appelés communicateurs et des groupes qui définissent un ensemble de processus
+qui devront communiquer (échanger des messages) entre eux. La majorité des fonctions MPI demandent un
+communicateur en argument.
+
+\`A l'initialisation de MPI, un communicateur  est prédéfini : MPI\_COMM\_WORLD. Il inclut tous les
+processus créés par MPI. 
+
+Il est possible de définir un nouveau communicateur à partir d'un communicateur existant 
+en prenant un sous--ensemble de processus parmi les processus du communicateur existant, mais cela
+dépasse le cadre de ce cours.
+
+\section{Fonctions de gestion de l'environnement}
+
+Ces fonctions sont utilisées pour interroger et définir l'environnement d'exécution MPI, et couvrent divers buts comme
+l'initialisation et la terminaison de l'environnement MPI, l'interroger de l'identifiant du processus ou la version de MPI utilisée, etc. 
+
+\subsection{Les fonctions de gestion de l'environnement}
+
+Les routines les plus communes sont :
+
+\paragraph{\textcolor{blue}{\texttt{MPI\_Init(\&argc,\&argv)}}}
+
+  Initialise l'environnement d'exécution MPI. Dans un progamme MPI, cette fonction doit être appelée une fois seulement avant toutes autres fonctions MPI. 
+  \texttt{MPI\_Init} est utilisé pour passer les arguments de la ligne de commande à tous les processus.
+
+\paragraph{\textcolor{blue}{\texttt{MPI\_Comm\_size(comm, \&size)}}}
+
+  Retourne le nombre total de processus MPI dans le communicateur spécifié.
+  Si le communicateur est \texttt{MPI\_COMM\_WORLD}, il représente alors le nombre des tâches MPI disponibles pour votre application.
+
+\paragraph{\textcolor{blue}{\texttt{MPI\_Comm\_rank(comm,\&rank)}}}
+
+  Retourne le rang du processus MPI appelant dans le communicateur spécifié. Initialement, chaque processus se fera
+  assigner un entier unique nommé \textsl{rang} entre 0 et le nombre de tâches
+  -\ 1 dans le communicateur
+  \texttt{MPI\_COMM\_WORLD}. Ce rang est souvent référé comme l'identité de la tâche. Si un processus devient
+  associé avec d'autres communicateurs, il aura un rang unique (différent de celui attribué dans
+  \texttt{MPI\_COMM\_WORLD}\ !) pour chacun de ces communicateurs.
+
+\paragraph{\textcolor{blue}{\texttt{MPI\_Abort(comm,errocode)}}}
+
+  Termine tous les processus MPI associés avec ce communicateur. Dans la majorité des mises en {\oe}uvre de MPI,
+  TOUS les processus sont arrêtés sans considération pour le communicateur.
+
+\paragraph{\textcolor{blue}{\texttt{MPI\_Wtime()}}}
+
+  Retourne le temps réel passé en seconde ( double précision ) sur le processeur appelant.
+
+\paragraph{\textcolor{blue}{\texttt{MPI\_Wtick()}}}
+
+  Retourne la résolution en seconde ( double précision ) de \texttt{MPI\_Wtime}.
+
+\paragraph{\textcolor{blue}{\texttt{MPI\_Finalize()}}}
+
+  Termine l'environnement d'exécution MPI. Cette fonction devra être la dernière fonction appelée dans tout programme MPI -- aucune autre fontion MPI ne devra être appelée après celle-ci.
+
+\subsection{Exemple : Utilisation des fonctions de gestion de l'environnement}
+
+\begin{lstlisting}[style=customcpp]
+# include <mpi.h>
+# include <cstdlib>
+
+int main( int argc, char *argv[] ) {
+  int numtasks, rank;
+
+  // Initialisation de MPI
+  MPI_Init( &argc, &argv );
+
+  // Lit le nombre de tâches
+  MPI_Comm_size(MPI_COMM_WORLD, &numtasks);
+
+  // Lit mon rang
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  // Ici on peut commencer à faire de la programmation
+  // parallèle par échange de messages.
+
+  // On termine l'environnement MPI
+  MPI_Finalize();
+
+  return MPI_SUCCESS;	
+}
+\end{lstlisting}
+
+\subsection{Compilation et exécution d'un programme MPI}
+
+Pour compiler un programme utilisant MPI, il est conseillé d'utiliser les outils fourni en standard avec la
+bibliothèque. Ces outils vont automatiquement trouver les bons chemins pour les fichiers d'entêtes et les bibliothèques
+utilisées par la mise en {\oe}uvre de MPI employée :
+\begin{itemize}
+\item[\texttt{mpicc}] : Permet de compiler des sources C. Prend les mêmes arguments de compilation que le compilateur local (GNU C sous Linux par exemple).
+\item[\texttt{mpiCC}] : Permet de compiler des sources C++. Prend les mêmes arguments de compilation que le compiteur local (GNU C++ sous Linux par exemple).
+\item[\texttt{mpif90}] : Permet de compiler des sources Fortran 90. Prend les mêmes arguments de compilation que le compiteur local (GNU Fortran sous Linux par exemple).
+\end{itemize}
+
+Pour exécuter en parallèle sur $n$ tâches un programme MPI, on utilise l'exécutable \texttt{mpiexec} fourni en
+standard avec MPI. Son utilisation est la suivante :
+
+\texttt{mpiexec [option]} \textbf{$<$program$>$} \texttt{[ $<$args$>$ ]}
+
+où
+\begin{itemize}
+\item \textbf{$<$program$>$} est le nom de l'exécutable à lancer. Il est identifié comme le premier argument non reconnu par MPI.
+\item \texttt{[ $<$args$>$ ]} : Passe les arguments $<$args$>$  à tous les processus créés par MPI. Ils devront toujours être les derniers arguments de mpiexec. 
+\item Les options que l'on peut passer à mpiexec sont les suivantes :
+\begin{itemize}
+\item \texttt{-np $<$n$>$} : Exécute $<$n$>$ copies du programme dans autant de processus. Cette option ne peut être
+utilisée que dans un modèle de programmation SPMD;
+\item \texttt{-hostfile $<$hostfile$>$} : Utilise le fichier $<$hostfile$>$ pour connaître le nom des machines
+( ou des n{\oe}uds de calcul ) sur lesquels on lancera des tâches MPI
+\end{itemize}
+\end{itemize}
+
+Le format du fichier $<$hostfile$>$ est le suivant :
+\begin{verbatim}
+aa slots=a1
+bb slots=b1
+cc slots=c1
+\end{verbatim}
+où \verb@aa@, \verb@bb@ et \verb@cc@ sont des noms de machines, et \verb@a1@, \verb@a2@ et \verb@a3@ sont des entiers indiquant à MPI le nombre de processus qu'on lui conseille de lancer pour chaque machine.
+
+\subsection{Exercices}
+
+\paragraph{Un hello World parallèle}
+
+\'Ecrire un programme qui, pour chaque processus, affichera à l'écran le message suivant :
+\begin{verbatim}
+Bonjour, je suis la tâche n° xx sur yy tâches.
+\end{verbatim}
+où \verb@xx@ est le rang de la tâche et \verb@yy@ le nombre de tâches lancées par MPI.
+
+\section{Fonctions d'échanges de messages point à point}
+
+\subsection{Les types d'opérations point à point}
+
+Les fonctions d'échanges de messages point à point permettent d'échanger des messages
+entre deux -- et seulement deux -- tâches. Une des tâches se charge de l'envoi de données
+tandis que l'autre tâche se charge de la réception correspondante.
+
+Il y a différents types d'envoi ou de réception, utilisés pour différents buts. Par exemple :
+\begin{itemize}
+\item les envois synchrones;
+\item les envois/réceptions bloquants;
+\item les envois/réceptions non bloquants;
+\item les envois mis en buffer;
+\item les envois/réceptions combinés;
+\item les envois ``prêts''.
+\end{itemize}
+
+\`A noter que tout type d'envoi peut être reçu avec tout type de réception.
+
+MPI fournit en outre plusieurs routines associées avec les envois et les réceptions telle que celles utilisées
+pour tester si un message a bien été reçu, ou si un message est prêt à la réception.
+
+Les données sont transmises via un message, lequel est constitué :
+\begin{itemize}
+\item \textcolor{blue}{\`A l'envoi} : du numéro de la tâche destinataire, d'un numéro permettant d'identifier
+le message (à la réception), des données, de la quantité de donnée et du type de données à envoyer.
+\item \textcolor{blue}{\`A la réception} : du numéro de la tâche expéditrice (peut être \texttt{MPI\_ANY\_TAG}), 
+du numéro identifiant le message attendu
+(mais on peut très bien passer \texttt{MPI\_ANY\_TAG} pour recevoir le premier message provenant de
+l'expéditeur), de l'adresse de la zone mémoire où on recevra les données, de la quantité de données
+attendues et du type de données attendues.
+\end{itemize}
+
+Le type des données est passé à l'aide d'une structure MPI, \texttt{MPI\_Datatype}, qui peut prendre les valeurs données dans le
+tableau suivant (avec le type correspondant) :
+
+\begin{center}
+\begin{tabular}{|c|c|}\hline
+Type MPI & Type C \\ \hline
+MPI\_INT & int \\
+MPI\_SHORT & short \\
+MPI\_LONG & long \\
+MPI\_LONG\_LONG\_INT & long long \\
+MPI\_UNSIGNED & unsigned \\
+MPI\_UNSIGNED\_LONG & unsigned long \\
+MPI\_UNSIGNED\_SHORT & unsigned short \\
+MPI\_FLOAT & float \\
+MPI\_DOUBLE & double \\
+MPI\_LONG\_DOUBLE & long double \\
+MPI\_CHAR & char \\
+MPI\_UNSIGNED\_CHAR & unsigned char \\
+MPI\_C\_COMPLEX & float\_Complex \\
+MPI\_C\_DOUBLE\_COMPLEX & double\_Complex \\
+MPI\_BYTE & void* \\
+MPI\_PACKED & données hétérogènes\\ \hline
+\end{tabular}
+\end{center}
+
+\subsection{Buffering}
+
+Dans un monde parfait, les envois devraient être parfaitement synchronisés avec les réceptions correspondantes, mais 
+en réalité c'est rarement le cas. D'une certaine manière, la bibliothèque MPI utilisée doit pouvoir gérer les données stockées lorsque les deux tâches sont non synchrones. 
+
+Par exemple :
+\begin{itemize}
+\item Une opération d'envoi a lieu cinq secondes avant que la réception soit prête -- où se trouve le message avant que la
+réception soit faite ?
+\item Plusieurs envois arrivent simultanément sur la même tâche qui ne peut accepter qu'une réception à la fois -- que deviennent
+les messages en attente de réception ?
+\end{itemize}
+
+La mise en {\oe}uvre de la bibliothèque MPI utilisée décide de la gestion de ces données dans tous les cas qui se présentent
+(cette gestion ne fait pas partie du standard !). Typiquement, une zone  \textbf{buffer système} est réservée pour contenir les données
+en transit. 
+
+\begin{center}
+\begin{tikzpicture}
+\draw[draw=none, fill=cyan!75!black, drop shadow=blue!25!black, very thick] (-6cm,-6cm) rectangle (-2cm,0cm);
+\draw[very thick,color=cyan] (-6cm,-6cm) -- (-6cm,0cm) -- (-2cm,0cm);
+\draw[very thick,color=cyan!50!black] (-6cm,-6cm) -- (-2cm,-6cm) -- (-2cm,0cm);
+\node[minimum width=8, centered] at (-4cm,-1em) {\Large N{\oe}ud 1};
+\draw[draw=none,fill=blue!75!black, drop shadow=blue!20!black, very thick] (-5.5cm,-5.5cm) rectangle (-2.5cm,-1cm);
+\draw[color=blue, very thick] (-5.5cm,-5.5cm) -- (-5.5cm,-1cm) -- (-2.5cm,-1cm);
+\draw[color=blue!50!black, very thick] (-5.5cm,-5.5cm) -- (-2.5cm,-5.5cm) -- (-2.5cm,-1cm);
+\node[centered] at (-4cm,-1cm-1em) {\bf Tâche A};
+\draw[fill=white,draw] (-5.25cm,-3cm) rectangle (-2.75cm, -1.6cm);
+\node[centered] at (-4cm,-1.6cm-1em) (send) {\small Send};
+\node[rectangle,fill=violet!50!white, drop shadow=black] at (-4cm,-2.5cm) (ds) {\scriptsize data};
+\draw[fill=white,draw] (-5.25cm,-3.5cm) rectangle (-2.75cm, -5.25cm);
+\node[centered] at (-4cm,-3.5cm-1em) {\small System Buffer};
+
+
+\draw[draw=none, fill=cyan!75!black, drop shadow=blue!25!black, very thick] (+2cm,-6cm) rectangle (+6cm,0cm);
+\draw[thick,color=cyan] (+2cm,-6cm) -- (+2cm,0cm) -- (+6cm,0cm);
+\draw[thick,color=cyan!50!black] (+2cm,-6cm) -- (+6cm,-6cm) -- (+6cm,0cm);
+\node[minimum width=8, centered] at (+4cm,-1em) {\Large N{\oe}ud 2};
+\draw[draw=none,fill=blue!75!black, drop shadow=blue!20!black, very thick] (+2.5cm,-5.5cm) rectangle (+5.5cm,-1cm);
+\draw[color=blue, very thick] (+2.5cm,-5.5cm) -- (+2.5cm,-1cm) -- (+5.5cm,-1cm);
+\draw[color=blue!50!black, very thick] (+2.5cm,-5.5cm) -- (+5.5cm,-5.5cm) -- (+5.5cm,-1cm);
+\node[centered] at (+4cm,-1cm-1em) {\bf Tâche B};
+\draw[fill=white,draw] (5.25cm,-3cm) rectangle (2.75cm, -1.6cm);
+\node[centered] at (4cm,-1.6cm-1em) (send) {\small Recv};
+\node[rectangle,fill=violet!50!white, drop shadow=black] at (4.25cm,-2.5cm) (dr2) {\scriptsize data};
+\draw[fill=white,draw] (5.25cm,-3.5cm) rectangle (2.75cm, -5.25cm);
+\node[centered] at (4cm,-3.5cm-1em) {\small System Buffer};
+\node[rectangle,fill=violet!50!white, drop shadow=black] at (3.5cm,-4.5cm) (dr1) {\scriptsize data};
+\node at (4.25cm, -4.5cm) (ph) {};
+\node at (0cm,-2cm) {$\leftarrow$ Réseau $\rightarrow$};
+\draw[red,->] (ds) -- (dr1);
+\draw[red,->] (dr1.east) -| (dr2.south);
+\end{tikzpicture}
+\end{center}
+
+Cette zone privée est :
+\begin{itemize}
+\item opaque au programmeur et entièrement gérée par la bibliothèque MPI employée;
+\item une ressource finie qui peut être facilement épuisée;
+\item souvent mystérieuse et mal documentée;
+\item capable d'exister du côté de l'envoi, de la réception ou des deux à la fois;
+\item quelque chose qui devrait améliorer les performances du programme car permettant l'envoi et
+la réception en asynchrone. 
+\end{itemize}
+
+L'espace d'adresse des variables du programme est appelée le \textbf{buffer d'application}. MPI permet à l'utilisateur de gérer son
+buffer d'envoi dans cet espace.
+
+\subsection{Bloquant contre non bloquant}
+
+La plupart des routines point à point de MPI peuvent être utilisées en communication bloquante ou non bloquante. 
+
+\begin{itemize}
+\item[Bloquant]
+  \begin{itemize}
+  \item Un envoi bloquant rendra la main seulement après s'être assuré que modifier le buffer d'application est ``sûr''.
+``Sûr'' signifie ici que ces modifications n'altérera pas les données qui devront être reçues par la tâche destinataire -- elles peuvent
+par contre être stockées dans un buffer système.
+\item Un envoi bloquant peut être synchrone, ce qui signifie qu'il y a un échange d'information avec la tâche destinataire pour
+confirmer que l'envoi est sûr;
+\item Un envoi bloquant peut être asynchrone si un buffer système est utilisé pour contenir les données à envoyer au destinataire;
+\item Une réception bloquante rend la main seulement après que les données soient arrivées et prêtes à être utilisées par
+l'utilisateur.
+  \end{itemize}
+\item[Non bloquant]
+\begin{itemize}
+\item Les envois et réceptions non bloquants se comportent de manière similaire -- ils rendent la main immédiatement. Ils n'attendent pas
+qu'une étape de communication soit finie, telle que la copie du buffer d'application vers le buffer système ou l'arrivée du message attendu;
+\item Les opérations non bloquantes interrogent simplement la bibliothèque MPI pour exécuter les opérations quand elles sont valides. L'utilisateur
+ne peut pas deviner le moment où cela va se passer;
+\item Il est dangereux de modifier le buffer d'application tant que vous n'êtes pas certain que l'opération non bloquante demandée se soit
+exécutée. Il existe des routines de type ``attente'' pour s'en assurer.
+\item Les communications non bloquantes sont utilisées surtout pour recouvrir les communications avec des calculs et pouvoir ainsi gagner
+en rapidité d'exécution.
+\end{itemize}
+\end{itemize}
+
+\begin{minipage}{8cm}
+\begin{center}Envoi bloquant\end{center}
+
+\begin{lstlisting}[style=customcpp]
+myvar = 0;
+for ( i = 1; i < numtasks, ++i ) {
+  task = i;
+  MPI_Send(&myvar,...,...,task,...);
+  myvar = myvar + 2;
+  // Do some works
+  ...
+  ...
+}
+\end{lstlisting}
+
+\begin{center}Sûr. Pourquoi ?\end{center}
+\end{minipage}
+\begin{minipage}{8cm}
+\begin{center}Envoi non bloquant\end{center}
+
+\begin{lstlisting}[style=customcpp]
+myvar = 0;
+for ( i = 1; i < numtasks, ++i ) {
+  task = i;
+  MPI_ISend(&myvar,...,...,task,...);
+  myvar = myvar + 2;
+  // Do some works
+  ...
+  MPI_Wait (...);
+}
+\end{lstlisting}
+
+\begin{center}Dangereux. Pourquoi ?\end{center}
+\end{minipage}
+
+\subsection{Routines d'échange de message MPI}
+
+Les communications points à points MPI prennent en général une liste d'argument similaire.\\
+{\small
+\begin{tabular}{|c|c|}\hline
+\textbf{Envoi bloquant} & \texttt{MPI\_Send(buffer, count, type, dest, idtag, comm)} \\ \hline
+\textbf{Envoi non bloquant} & \texttt{MPI\_ISend(buffer, count, type, dest, idtag, comm, request)} \\ \hline
+\textbf{Réception bloquante} & \texttt{MPI\_Recv(buffer, count, type, source, idtag, comm, status)} \\ \hline
+\textbf{Réception non bloquante} & \texttt{MPI\_IRecv(buffer, count, type, source, idtag, comm, request)} \\ \hline
+\end{tabular}
+}\\
+où
+\begin{itemize}
+\item[{\bf buffer}] Adresse référençant les variables à envoyer ou recevoir. Dans la majorité des cas, c'est simplement le nom
+de la variable qui doit être envoyée ou dans laquelle on reçoit. Si c'est un simple scalaire, on passe la variable par adresse,
+ce qui se traduit en C par un symbole \& avant la variable.
+\item[{\bf count}] Indique dans le cas d'un tableau le nombre d'éléments du tableau à envoyer.
+\item[{\bf type}]  Pour des raisons de portabilité, MPI prédéfinit des types de données élémentaires. Voir la table donnée préalablement
+pour les types fournis par MPI.
+\item[{\bf dest}] Un argument pour les routines d'envoi spécifiant le numéro de la tâche destinée à recevoir le message;
+\item[{\bf source}] Spécifie le numéro de la tâche dont on attend le message. Ce numéro peut être un ``joker'' et on peut attendre un message
+provenant de n'importe quelle tâche grâce à la variable \texttt{MPI\_ANY\_SOURCE}.
+\item[{\bf idtag}] Un entier arbitraire donné par le programmeur pour identifier son message. Ce nombre peut être compris entre 0
+et 32767. En réception, la routine attend un message portant cet identifiant pour le recevoir. On peut là encore utiliser un ``joker''
+à l'aide de la variable \texttt{MPI\_ANY\_TAG};
+\item[{\bf comm}] Le communicateur pour lequel les numéros des tâches utilisées sont valides. Sauf si le programmeur a créé des communicateurs,
+on utilise par défaut \texttt{MPI\_COMM\_WORLD}.
+\item[{\bf status}] Pour une opération de réception, indique la source et l'identifiant du message. En C, c'est un pointeur sur une structure
+de type \texttt{MPI\_Status}. 
+\item[{\bf request}] Pour les opérations non bloquantes, c'est une structure opaque servant à analyser l'état de l'envoi ou de la réception.
+Cette variable sera utilisée ensuite pour synchroniser la réception ou l'envoi (à l'aide d'une routine de type \texttt{MPI\_Wait}).
+\end{itemize}
+
+\paragraph{Fonctions d'échange de message bloquantes}
+
+\begin{itemize}
+\item \textcolor{blue}{\texttt{MPI\_Send}} :
+
+C'est l'opération basique d'envoi bloquant. La fonction ne rend la main que lorsque le buffer d'application dans la tâche est de nouveau libre
+pour être reutilisé. 
+
+\begin{lstlisting}[style=customcpp]
+MPI_Send (&buf,count,datatype,dest,tag,comm) 
+\end{lstlisting}
+
+\underline{Exemples} :
+\begin{lstlisting}[style=customcpp]
+int myval = 3;
+double mybuf[100] = { ... };
+MPI_Send(&myval, 1, MPI_INT, rank+1, 0, MPI_COMM_WORLD);
+MPI_Send(mybuf, 100, MPI_DOUBLE, rank+1, 0, MPI_COMM_WORLD );
+\end{lstlisting}
+
+\item \textcolor{blue}{\texttt{MPI\_Recv}}
+
+Reçoit un message. Ne rend pas la main jusqu'à ce que le buffer d'application  soit utilisable par l'utilisateur.
+
+\begin{lstlisting}[style=customcpp]
+MPI_Recv (&buf,count,datatype,source,tag,comm, &status) 
+\end{lstlisting}
+
+
+Exemples :
+\begin{lstlisting}[style=customcpp]
+int val;
+double buf[100];
+MPI_Status status;
+MPI_Recv(&val, 1, MPI_INT, rank-1, 0, MPI_COMM_WORLD,&status);
+MPI_Recv(buf, 100, MPI_DOUBLE, rank-1, 0, MPI_COMM_WORLD, &status );
+\end{lstlisting}
+
+\item \textcolor{blue}{\texttt{MPI\_Ssend}}
+
+Envoi bloquant synchrone. Envoie un message et attend que le buffer d'application dans la tâche émettrice
+puisse de nouveau être reutilisé et que la tâche destinataire ait commencé à recevoir le message.
+
+\begin{lstlisting}[style=customcpp]
+MPI_Ssend( &buf, count, datatype, dest, tag, comm)
+\end{lstlisting}
+
+Exemples :
+\begin{lstlisting}[style=customcpp]
+int val;
+double buffer[255];
+MPI_Ssend( &val, 1, MPI_INT, rank+1, 101, MPI_COMM_WORLD );
+MPI_Ssend( buffer, 255, MPI_DOUBLE, rank+1, 30, MPI_COMM_WORLD );
+\end{lstlisting}
+
+\item \textcolor{blue}{\texttt{MPI\_Sendrecv}}
+
+Envoie un message puis attend une réception avant de bloquer. Bloque jusqu'à ce que le buffer d'application
+d'envoi soit de nouveau disponible pour utilisation et que le buffer d'application de réception contienne
+le message reçu.
+
+\begin{lstlisting}[style=customcpp]
+MPI_Sendrecv( &sendBuf, sendCount, sendType, dest, sendTag, 
+              &recvBuf, recvCount, recvType, source, recvTag,
+              comm, &status );
+\end{lstlisting}
+
+Exemples :
+\begin{lstlisting}[style=customcpp]
+int sendVal;
+double sendBuf[255];
+int recvVal;
+double recvBuf[255];
+MPI_Status status;
+MPI_Sendrecv( &sendVal, 1, MPI_INT, rank+1, 101,
+              &recvVal, 1, MPI_INT, rank-1, 101,
+              MPI_COMM_WORLD, &status );
+MPI_Sendrecv( sendBuf, 1, MPI_DOUBLE, rank+1, 101,
+              recvBuf, 1, MPI_DOUBLE, rank-1, 101,
+              MPI_COMM_WORLD, &status ); 
+\end{lstlisting}
+
+\item \textcolor{blue}{\texttt{MPI\_Probe}}
+
+Effectue un test bloquant sur un message. Les ``jokers'' \texttt{MPI\_ANY\_SOURCE} et \texttt{MPI\_ANY\_TAG} peuvent être utilisés
+pour tester un message provenant de n'importe quelle tâche ou identifié par n'importe quel nombre. \`A la sortie de la fonction,
+le numéro de l'expéditeur et le numéro identifiant le message seront retournés dans le paramètre \texttt{status} (à l'aide
+de \texttt{status.MPI\_SOURCE} et \texttt{status.MPI\_TAG}).
+
+\begin{lstlisting}[style=customcpp]
+MPI_Probe( source, tag, comm, &status );
+\end{lstlisting}
+
+\item \textcolor{blue}{\texttt{MPI\_Get\_count}}
+
+Retourne le numéro de l'expéditeur, l'identifiant du message et le nombre d'éléments d'un certain type reçu. Peut être utilisée avec des opérations
+de réception bloquantes ou non. Le numéro de l'expéditeur et l'identifiant seront retournés dans la structure de \texttt{status} comme 
+\texttt{status.MPI\_SOURCE} et \texttt{status.MPI\_TAG}. 
+
+\begin{lstlisting}[style=customcpp]
+MPI_Get_count( &status, datatype, &count )
+\end{lstlisting}
+
+\end{itemize}
+
+\underline{Exemple d'utilisation des fonctions bloquantes d'échange de messages}
+
+\begin{lstlisting}[style=customcpp]
+#include "mpi.h"
+#include <stdio.h>
+
+int main(int argc, char *argv[])  {
+  int numtasks, rank, dest, source, rc, count, tag=1;  
+  char inmsg, outmsg='x';
+  MPI_Status Stat;   // required variable for receive routines
+
+  MPI_Init(&argc,&argv);
+  MPI_Comm_size(MPI_COMM_WORLD, &numtasks);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  // task 0 sends to task 1 and waits to receive a return message
+  if (rank == 0) {
+    dest = 1;
+    source = 1;
+    MPI_Send(&outmsg, 1, MPI_CHAR, dest, tag, MPI_COMM_WORLD);
+    MPI_Recv(&inmsg, 1, MPI_CHAR, source, tag, MPI_COMM_WORLD, &Stat);
+  } 
+  // task 1 waits for task 0 message then returns a message
+  else if (rank == 1) {
+    dest = 0;
+    source = 0;
+    MPI_Recv(&inmsg, 1, MPI_CHAR, source, tag, MPI_COMM_WORLD, &Stat);
+    MPI_Send(&outmsg, 1, MPI_CHAR, dest, tag, MPI_COMM_WORLD);
+  }
+
+  // query recieve Stat variable and print message details
+  MPI_Get_count(&Stat, MPI_CHAR, &count);
+  printf("Task %d: Received %d char(s) from task %d with tag %d \n",
+         rank, count, Stat.MPI_SOURCE, Stat.MPI_TAG);
+
+  MPI_Finalize();
+}
+\end{lstlisting}
+
+\paragraph{Fonctions non bloquantes d'échange de message}
+
+Les fonctions non bloquantes les plus utilisées pour échanger des messages
+sont données ci--dessous. On y donne également les fonctions bloquantes
+qui leur sont associées.
+
+\begin{itemize}
+\item \textcolor{blue}{\texttt{MPI\_Isend}}
+
+Utilise une aire en mémoire pour servir comme buffer d'envoi. La tâche continue
+immédiatement après l'appel sans attendre que le message soit copié du
+buffer d'application. Une requête est renvoyée permettant au programmeur de
+connaître l'état de l'envoi. Le programmeur doit s'assurer de ne pas modifier
+le buffer d'application jusqu'à ce qu'il ait testé si le buffer d'application
+est de nouveau prêt à l'emploi grâce aux fonctions \texttt{MPI\_Wait} ou
+\texttt{MPI\_Test}.
+
+\begin{lstlisting}[style=customcpp]
+MPI_Isend( &buf, count, datatype, dest, tag, comm, &request )
+\end{lstlisting}
+
+\item \textcolor{blue}{\texttt{MPI\_Irecv}}
+
+Utilise une aire en mémoire pour servir de buffer de réception. La tâche continue
+immédiatement après l'appel à la fonction sans attendre que le message soit copié
+dans le buffer d'application. Une requête est renvoyée permettant au programmeur
+de connaître l'état de la réception. Le programmeur doit utiliser une des
+fonctions \texttt{MPI\_Wait} ou \texttt{MPI\_Test} pour s'assurer que le message
+reçu est valable dans le buffer d'application.
+
+\begin{lstlisting}[style=customcpp]
+MPI_Irecv( &buf, count, datatype, source, tag, comm, &request )
+\end{lstlisting}
+
+\item \textcolor{blue}{\texttt{MPI\_Issend}}
+
+Envoi synchrone non bloquant. Cette fonction est similaire à \texttt{MPI\_Isend}
+sauf que \texttt{MPI\_Wait} ou \texttt{MPI\_Test} indiquent si la tâche destinataire
+a reçu ou non le message.
+
+\begin{lstlisting}[style=customcpp]
+MPI_Issend( &buf, count, datatype, dest, tag, comm, &request )
+\end{lstlisting}
+
+\item \textcolor{blue}{\texttt{MPI\_Test}, \texttt{MPI\_Testany}, \texttt{MPI\_Testall}, \texttt{MPI\_Testsome}}
+
+Ces fonctions testent le status d'un envoi ou d'une réception non bloquante spécifique à l'aide de la requête associée. 
+Le paramêtre ``\texttt{flag}'' est retourné
+comme logiquement vrai (=1) si l'opération est finie et logiquement fausse (=0) sinon. Pour plusieurs opérations non
+bloquantes, le programmeur peut demander à tester si une des opérations, toutes les opérations ou certaines opérations
+sont finies.
+
+\begin{lstlisting}[style=customcpp]
+MPI_Test(&request, &flag, &status );
+MPI_Testany( count, &array_of_requests, &index, &flag, &status );
+MPI_Testall( count, &array_of_requests, &flag, &array_of_statuses );
+MPI_Testsome( incount, &array_of_requests, &outcount, &array_of_offsets, 
+              &array_of_statuses );
+\end{lstlisting}
+
+\item \textcolor{blue}{\texttt{MPI\_Wait}, \texttt{MPI\_Waitany}, \texttt{MPI\_Waitall}, \texttt{MPI\_Waitsome}}
+
+Ces fonctions bloquent jusqu'à ce qu'un envoi ou une réception spécifié soit fini. Pour plusieurs envois/réceptions
+non bloquants, le programmeur peut spécifier si une des opérations, toutes ou certaines opérations sont finies.
+
+\begin{lstlisting}[style=customcpp]
+MPI_Wait(&request, &status );
+MPI_Waitany( count, &array_of_requests, &index, &status );
+MPI_Waitall( count, &array_of_requests, &array_of_statuses );
+MPI_Waitsome( incount, &array_of_requests, &outcount, &array_of_offsets, 
+              &array_of_statuses );
+\end{lstlisting}
+
+\item \textcolor{blue}{\texttt{MPI\_Iprobe}}
+
+Effectue un test non bloquant pour un message. Les ``jokers'' \texttt{MPI\_ANY\_SOURCE} et \texttt{MPI\_ANY\_TAG}
+peuvent être utilisés pour testé un message provenant de n'importe quelle autre tâche ou ayant n'importe
+quel identifiant. Le paramêtre entier ``\texttt{flag}'' est retourné avec une valeur logiquement vraie ( = 1 )
+si le message est arrivé et logiquement fausse sinon ( = 0 ). Le numéro de l'expéditeur et l'identifiant du
+message sont retournés via \texttt{status} comme \texttt{status.MPI\_SOURCE} et \texttt{status.MPI\_TAG}.
+
+\begin{lstlisting}[style=customcpp]
+MPI_Iprobe( source, tag, comm, &flag, &status )
+\end{lstlisting}
+
+\end{itemize}
+
+\underline{Exemple de programme utilisant des messages non bloquants}
+
+\'Echange de données avec son plus proche voisin dans une topologie en anneau :
+
+\begin{center}
+\begin{tikzpicture}
+  \tikzset{VertexStyle/.style = { shape        = circle,
+                                  ball color   = orange,
+                                  text         = black,
+                                  inner sep    = 2pt,
+                                  outer sep    = 0pt,
+                                  minimum size = 24pt} }
+  \tikzset{EdgeStyle/.style   = {thick,
+                                 double        = orange,
+                                 double distance = 1pt,rounded corners=5pt } }
+
+  \node[VertexStyle](N0){0};
+  \node[VertexStyle,right =of N0](N1){1};
+  \node[VertexStyle,right =of N1](N2){2};
+  \node[VertexStyle,right =of N2](N3){3};
+  \node[VertexStyle,right =of N3](Np){\ldots};
+  \node[VertexStyle,right =of Np](Nn){N-1};
+  \draw[EdgeStyle,->] (N0.south east) -- (N1.south west);
+  \draw[EdgeStyle,->] (N1.north west) -- (N0.north east);
+  \draw[EdgeStyle,->] (N1.south east) -- (N2.south west);
+  \draw[EdgeStyle,->] (N2.north west) -- (N1.north east);
+  \draw[EdgeStyle,->] (N2.south east) -- (N3.south west);
+  \draw[EdgeStyle,->] (N3.north west) -- (N2.north east);
+  \draw[EdgeStyle,->] (N3.south east) -- (Np.south west);
+  \draw[EdgeStyle,->] (Np.north west) -- (N3.north east);
+  \draw[EdgeStyle,->] (Np.south east) -- (Nn.south west);
+  \draw[EdgeStyle,->] (Nn.north west) -- (Np.north east);
+  \coordinate[shift={(0mm,5mm)}] (s0) at (Nn.north);
+  \coordinate[shift={(0mm,-5mm)}] (r0) at (Nn.south);
+  \draw[EdgeStyle,->] (Nn.north) -| (s0) -| (N0.north);
+  \draw[EdgeStyle,->] (N0.south) |- (r0) -| (Nn.south);
+\end{tikzpicture}
+\end{center}
+
+\begin{lstlisting}[style=customcpp]
+#include "mpi.h"
+#include <stdio.h>
+
+int main(int argc, char *argv[])  {
+   int numtasks, rank, next, prev, buf[2], tag1=1, tag2=2;
+   MPI_Request reqs[4];   // required variable for non-blocking calls
+   MPI_Status stats[4];   // required variable for Waitall routine
+
+   MPI_Init(&argc,&argv);
+   MPI_Comm_size(MPI_COMM_WORLD, &numtasks);
+   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+   
+   // determine left and right neighbors
+   prev = rank-1;
+   next = rank+1;
+   if (rank == 0)  prev = numtasks - 1;
+   if (rank == (numtasks - 1))  next = 0;
+
+   // post non-blocking receives and sends for neighbors
+   MPI_Irecv(&buf[0], 1, MPI_INT, prev, tag1, MPI_COMM_WORLD, &reqs[0]);
+   MPI_Irecv(&buf[1], 1, MPI_INT, next, tag2, MPI_COMM_WORLD, &reqs[1]);
+
+   MPI_Isend(&rank, 1, MPI_INT, prev, tag2, MPI_COMM_WORLD, &reqs[2]);
+   MPI_Isend(&rank, 1, MPI_INT, next, tag1, MPI_COMM_WORLD, &reqs[3]);
+  
+   // do some work while sends/receives progress in background
+
+   // wait for all non-blocking operations to complete
+   MPI_Waitall(4, reqs, stats);
+  
+   // continue - do more work
+
+   MPI_Finalize();
+}
+\end{lstlisting}
+
+\subsection{Exercices}
+
+\paragraph{Circulation d'un jeton dans un anneau}
+
+On veut faire circuler un jeton dans un réseau topologiquement équivalent
+à un anneau (un exemple de jeton est un fichier de licence).
+
+L'algorithme de circulation du jeton pour \texttt{nbp} tâches est le suivant :
+\begin{enumerate}
+\item La première tâche (tâche 0) génère un entier (dont la valeur est choisi arbitrairement par le
+  programmeur, et considéré ici comme le jeton), et l'envoie au processus suivant (le processus 1);
+  Il reçoit ensuite le jeton du processus \texttt{nbp}-1 et affiche sa valeur;
+\item Le processus 1 reçoit le jeton, incrémente sa valeur de 1 et l'envoie au prochain processus;
+\item \ldots
+\item Le processus $p$ reçoit le jeton, l'incrémente de 1 et l'envoie au processus suivant
+(processus $p+1$);
+\item \ldots
+\item Le dernier processus (processus \texttt{nbp}-1) reçoit le jeton, l'incrémente de 1 et
+  l'envoie au processus 0;
+\end{enumerate}
+
+En vous servant de l'exercice sur l'environnement MPI, mettez en {\oe}uvre l'algorithme décrit ci--dessus, puis
+compilez et testez sur divers nombres de tâches.
+
+\fbox{
+\begin{minipage}{\textwidth}
+\underline{Astuce} : \\
+\begin{enumerate}
+ \item Lorsque vous programmez en parallèle, essayez de penser au niveau local d'un processus et non au niveau global (sur tous les processus).
+ \item Pour déboguer votre programme, n'hésitez pas à écrire des messages avant et après envoi/réception de messages, suivit d'un
+  appel à \texttt{fflush}. En effet, il arrive souvent lors de la mise au point d'un programme en parallèle de se retrouver
+  dans une situation de \textsl{dead--lock}, c'est à dire dans une situation où un ou plusieurs processus attendent indéfiniment un message
+  en réception alors que ce message ne sera jamais envoyé.
+\end{enumerate} 
+\end{minipage}}
+
+\paragraph{Calcul de pi par lancer de fléchettes}
+
+On veut calculer la valeur de pi à l'aide de l'algorithme stochastique suivant :
+\begin{itemize}
+\item On considère le carré unité
+$\left[-1;1\right]\times \left[-1;1\right]$ dans lequel on inscrit le cercle unité de centre $(0,0)$ et de rayon $1$.
+\item On génère des points aléatoirement dans le carré unité.
+\item On compte le nombre de points générés dans le carré qui sont aussi dans le cercle.
+\item Soit $r$ ce nombre de points dans le cercle divisé par le nombre de points
+  total dans le carré, on calcule alors pi comme $\pi = 4.r$.
+\end{itemize}
+
+Remarquez que l'erreur faite sur pi décroit quand le nombre de points générés augmente.
+
+\begin{center}
+\begin{tikzpicture}[scale=2]
+\draw[color=black,fill=cyan] (0,0) circle (1);
+\draw[color=black] (-1,-1) -- (-1,1) -- (1,1) -- (1,-1) -- cycle;
+\draw[red] plot[only marks, mark=*, mark size=0.5, domain=-1:1, samples=400] (\x,{rnd*2-1});
+\end{tikzpicture}
+\end{center}
+
+La fonction C++ permettant de générer les points dans le carré et calculer le ratio entre nombre
+de points dans le cercle et nombre de points générés est la suivante :
+
+\begin{lstlisting}[style=customcpp]
+# include <chrono>
+# include <random>
+// Attention, ne marche qu'en C++ 11 ou supérieur :
+double approximate_pi( unsigned long nbSamples ) {
+  typedef std::chrono::high_resolution_clock myclock;
+  myclock::time_point beginning = myclock::now();
+
+  myclock::duration d = myclock::now() - beginning;
+  unsigned seed = d.count();
+  std::default_random_engine generator(seed);
+  std::uniform_real_distribution<double> distribution(-1.0,1.0);
+  unsigned long nbDarts = 0;
+  // Throw nbSamples darts in the unit square [-1:1] x [-1:1]
+  for ( unsigned sample = 0; sample < nbSamples; ++sample ) {
+    double x = distribution(generator);
+    double y = distribution(generator);
+    // Test if the dart is in the unit disk
+    if ( x*x+y*y<=1 ) nbDarts ++;
+  }
+  // Number of nbDarts throwed in the unit disk
+  double ratio = double(nbDarts)/double(nbSamples);
+  return ratio;
+}
+\end{lstlisting}
+
+\begin{itemize}
+\item Couper l'itération de boucle en plusieurs morceaux pouvant être exécutés par différentes tâches
+simultanément;
+\item Chaque tâche exécute sa portion de boucle;
+\item Chaque tâche peut exécuter son travail sans avoir besoin d'information des autres tâches ( indépendance
+des données );
+\item La tâche maître ( que le programmeur aura choisi parmi ses tâches ) reçoit le résultat des autres
+tâches à l'aide d'échanges de message point à point.
+\item Dans un deuxième temps, essayer à l'aide de réceptions non bloquantes de recouvrir les réceptions par du
+calcul dans le processus maître.
+\end{itemize}
+
+\begin{center}
+\begin{tikzpicture}[scale=2]
+\draw[color=black,fill=cyan] (0,0) circle (1);
+\draw[color=black] (-1,-1) -- (-1,1) -- (1,1) -- (1,-1) -- cycle;
+\draw[color=red,fill=red] plot[only marks, mark=*, mark size=0.5, domain=-1:1, samples=100] (\x,{rnd*2-1});
+\draw[color=green,fill=green] plot[only marks, mark=*, mark size=0.5, domain=-1:1, samples=100] (\x,{rnd*2-1});
+\draw[color=yellow, fill=yellow] plot[only marks, mark=*, mark size=0.5, domain=-1:1, samples=100] (\x,{rnd*2-1});
+\draw[color=violet, fill=violet] plot[only marks, mark=*, mark size=0.5, domain=-1:1, samples=100] (\x,{rnd*2-1});
+\draw (-0.75,-1.5) node[right,rectangle,fill=red] (t1) {task 1};
+\draw node[right, right=of t1, rectangle,fill=green] (t2) {task 2};
+\draw node[right, below=of t1, rectangle, fill=yellow] (t3) {task 3};
+\draw node[right, right=of t3, rectangle, fill=violet] (t4) {task 4};
+\end{tikzpicture}
+\end{center}
+
+\fbox{
+\begin{minipage}{\textwidth}
+\underline{Le concept} : diviser le travail parmi les tâches disponibles en communicant des données à l'aide
+d'appel à des fonctions d'envoi/réception point à point
+\end{minipage} }
+
+\paragraph{Diffusion d'un entier dans un réseau hypercube\textcolor{red}{$^{\star}$}}
+
+On veut écrire un programme qui diffuse un entier dans un réseau de n{\oe}uds de calculs dont la topologie
+est équivalente à celle d'un hypercube de dimension $d$ ( et qui contient donc $2^{d}$ n{\oe}uds de calcul ).
+
+\begin{enumerate}
+\item \'Ecrire un programme qui diffuse un entier dans un hyper cube de dimension 1 :
+\begin{itemize}
+\item La tâche 0 initialise un jeton à une valeur entière choisie par le programmeur et envoie cette valeur 
+à la tâche 1; 
+\item La tâche 1 reçoit la valeur du jeton de la tâche 0;
+\item Les deux tâches affichent la valeur du jeton;
+\end{itemize}
+\item Diffuser le jeton généré par la tâche 0 dans un hypercube de dimension 2 de manière que cette diffusion se fasse en un minimum
+d'étapes ( et donc un maximum de communications simultanées entre tâches ).
+\item Faire de même pour un hypercube de dimension 3
+\item \'Ecrire le cas général quand le cube est de dimension $d$. Le nombre d'étapes pour diffuser le jeton devra
+être égal à la dimension de l'hypercube.
+\end{enumerate}
+
+\begin{center}
+\begin{tikzpicture}
+% Cube dimension 0
+\draw (-4,0) node[fill=green,inner sep=1pt]{0};
+\draw (-4,-0.5) node{dim. 0};
+% Cube dimension 1
+\draw (-3,0) node[fill=green,inner sep=1pt](cd1_0){0} -- (-2,0) node[fill=cyan,inner sep=1pt](cd1_1){1};
+\draw (-2.5,-0.5) node{dim. 1};
+% Cube dimension 2
+\draw (-1,0) node[fill=green,inner sep=1pt](cd2_0){0} -- (0,0) node[fill=green,inner sep=1pt](cd2_1){1};
+\draw (-1,1) node[fill=cyan,inner sep=1pt](cd2_2){2} -- (0,1) node[fill=cyan,inner sep=1pt](cd2_3){3};
+\draw (cd2_0) -- (cd2_2) (cd2_1) -- (cd2_3);
+\draw (-0.5,-0.5) node{dim. 2};
+% Cube dimension 3
+\draw (1,0) node[fill=green,inner sep=1pt](cd3_0){0} -- (2,0) node[fill=green,inner sep=1pt](cd3_1){1};
+\draw (1,1) node[fill=green,inner sep=1pt](cd3_2){2} -- (2,1) node[fill=green,inner sep=1pt](cd3_3){3};
+\draw (1.5,0.5) node[fill=cyan,inner sep=1pt](cd3_4){4} -- (2.5,0.5) node[fill=cyan,inner sep=1pt](cd3_5){5};
+\draw (1.5,1.5) node[fill=cyan,inner sep=1pt](cd3_6){6} -- (2.5,1.5) node[fill=cyan,inner sep=1pt](cd3_7){7};
+\draw (cd3_0) -- (cd3_2) (cd3_1) -- (cd3_3);
+\draw (cd3_4) -- (cd3_6) (cd3_5) -- (cd3_7);
+\draw (cd3_0) -- (cd3_4) (cd3_1) -- (cd3_5) (cd3_2)--(cd3_6) (cd3_3)--(cd3_7);
+\draw (1.5,-0.5) node{dim. 3};
+% Cube de dimension 4
+\draw (6,0) node[fill=green,inner sep=1pt](cd4_0){0} -- (7,0) node[fill=green,inner sep=1pt](cd4_1){1};
+\draw (6,1) node[fill=green,inner sep=1pt](cd4_2){2} -- (7,1) node[fill=green,inner sep=1pt](cd4_3){3};
+\draw (6.5,0.5) node[fill=green,inner sep=1pt](cd4_4){4} -- (7.5,0.5) node[fill=green,inner sep=1pt](cd4_5){5};
+\draw (6.5,1.5) node[fill=green,inner sep=1pt](cd4_6){6} -- (7.5,1.5) node[fill=green,inner sep=1pt](cd4_7){7};
+\draw (cd4_0) -- (cd4_2) (cd4_1) -- (cd4_3);
+\draw (cd4_4) -- (cd4_6) (cd4_5) -- (cd4_7);
+\draw (cd4_0) -- (cd4_4) (cd4_1) -- (cd4_5) (cd4_2)--(cd4_6) (cd4_3)--(cd4_7);
+\draw (4,0.5) node[fill=cyan,inner sep=1pt](cd4_8){8} -- (5,0.5) node[fill=cyan,inner sep=1pt](cd4_9){9};
+\draw (4,1.5) node[fill=cyan,inner sep=1pt](cd4_10){10} -- (5,1.5) node[fill=cyan,inner sep=1pt](cd4_11){11};
+\draw (4.5,1) node[fill=cyan,inner sep=1pt](cd4_12){12} -- (5.5,1) node[fill=cyan,inner sep=1pt](cd4_13){13};
+\draw (4.5,2) node[fill=cyan,inner sep=1pt](cd4_14){14} -- (5.5,2) node[fill=cyan,inner sep=1pt](cd4_15){15};
+\draw (cd4_8) -- (cd4_10) (cd4_9) -- (cd4_11);
+\draw (cd4_12) -- (cd4_14) (cd4_13) -- (cd4_15);
+\draw (cd4_8) -- (cd4_12) (cd4_9) -- (cd4_13) (cd4_10)--(cd4_14) (cd4_11)--(cd4_15);
+\draw (cd4_0) -- (cd4_8) (cd4_1) -- (cd4_9) (cd4_2) -- (cd4_10) (cd4_3) -- (cd4_11) (cd4_4) -- (cd4_12) (cd4_5) -- (cd4_13) (cd4_6) -- (cd4_14) (cd4_7) -- (cd4_15);
+\draw (5.5,-0.5) node{dim. 4};
+\draw (2,-1) node{Hypercubes de dimension 0, 1, 2, 3 et 4};
+\end{tikzpicture}
+\end{center}
+
+\end{document}
+
+% Local Variables:
+% TeX-engine: luatex
+% End:
