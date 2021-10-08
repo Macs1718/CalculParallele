@@ -1,0 +1,539 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage{graphicx}
+%\usepackage{longtable}
+%\usepackage{float}
+%\usepackage{wrapfig}
+%\usepackage{rotating}
+%\usepackage{a4wide}
+%\usepackage[normalem]{ulem}
+\usepackage{amsmath,amsfonts}
+%\usepackage{textcomp}
+%\usepackage{marvosym}
+%\usepackage{wasysym}
+\usepackage{amssymb}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{fontspec}
+\usepackage{polyglossia}
+\setdefaultlanguage{french}
+\usepackage[top=30pt,bottom=30pt,left=48pt,right=46pt]{geometry}
+
+\usepackage[dvipsnames,table]{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{shadows,trees,matrix,arrows,decorations}
+\usetikzlibrary{decorations.pathmorphing, fadings, shapes, shapes.arrows, positioning, calc, shapes,fit}
+\tolerance=1000
+\author{Xavier JUVIGNY}
+\date{\today}
+\title{Travaux dirigés n°2}
+
+\definecolor{verylightgray}{rgb}{0.95 0.95 1.0}
+
+\definecolor{darkblue}{rgb}{0. 0. 0.4}
+
+\lstset{%
+  basicstyle=\footnotesize,
+  frame=single,
+  keywordstyle=\color{blue},
+  language=C++,
+  commentstyle=\color{red},
+  stringstyle=\color{Emerald},
+  keepspaces=true,
+  showspaces=false,
+  tabsize=2
+}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\section{Une introduction à MPI ( suite )}
+\subsection{Les fonctions de communication collectives}
+
+Il existe trois sortes de fonctions de communication collectives :
+\begin{enumerate}
+\item {\bf Synchronisation} : Les tâches attendent que les autres
+tâches du groupe aient atteint le point de synchronisation;
+\item {\bf \'Echanges de données} : Diffusion, regroupement, partition, \ldots
+\item {\bf Réduction} : Calcul collectif : une tâche du groupe collecte
+toutes les données des autres membres et effectue une opération sur
+ces données ( min, max, opération arithmétique, etc. ).
+\end{enumerate}
+
+\begin{figure}[ht]
+\begin{center}
+\begin{tikzpicture}
+\node[draw,circle, fill=Aquamarine,circular drop shadow] (d1) {\textcolor{red}{d}};
+\node[right = 1ex of d1.east, draw,circle, fill=Aquamarine,circular drop shadow] (d2) {\textcolor{red}{d}};
+\node[right = 1ex of d2.east, draw,circle, fill=Aquamarine,circular drop shadow] (d3) {\textcolor{red}{d}};
+\node[right = 1ex of d3.east, draw,circle, fill=Aquamarine,circular drop shadow] (d4) {\textcolor{red}{d}};
+\node[below = 3em of d2.east, draw, circle, fill=Aquamarine,circular drop shadow] (d5) {\textcolor{red}{d}};
+\draw[-latex] (d5) -- (d1);
+\draw[-latex] (d5) -- (d2);
+\draw[-latex] (d5) -- (d3);
+\draw[-latex] (d5) -- (d4);
+\node[below=7em of d2.east] {Diffusion};
+
+\node[right = 2ex of d4.east, draw, circle, fill=Aquamarine, circular drop shadow] (d6) {\textcolor{red}{$d_{1}$}};
+\node[right = 1ex of d6.east, draw, circle, fill=Aquamarine, circular drop shadow] (d7) {\textcolor{yellow}{$d_{2}$}};
+\node[right = 1ex of d7.east, draw, circle, fill=Aquamarine, circular drop shadow] (d8) {\textcolor{green}{$d_{3}$}};
+\node[right = 1ex of d8.east, draw, circle, fill=Aquamarine, circular drop shadow] (d9) {\textcolor{white}{$d_{4}$}};
+\node[below = 3em of d7.east, draw, circle, fill=Aquamarine,circular drop shadow] (d10) {\scriptsize\textcolor{red}{$d_{1}$}\textcolor{yellow}{$d_{2}$}\textcolor{green}{$d_{3}$}\textcolor{white}{$d_{4}$}};
+\draw[-latex] (d10) -- (d6);
+\draw[-latex] (d10) -- (d7);
+\draw[-latex] (d10) -- (d8);
+\draw[-latex] (d10) -- (d9);
+\node[below=7em of d7.east] {Partition};
+
+\node[right = 2ex of d9.east, draw, circle, fill=Aquamarine, circular drop shadow] (d11) {\textcolor{red}{$d_{1}$}};
+\node[right = 1ex of d11.east, draw, circle, fill=Aquamarine, circular drop shadow] (d12) {\textcolor{yellow}{$d_{2}$}};
+\node[right = 1ex of d12.east, draw, circle, fill=Aquamarine, circular drop shadow] (d13) {\textcolor{green}{$d_{3}$}};
+\node[right = 1ex of d13.east, draw, circle, fill=Aquamarine, circular drop shadow] (d14) {\textcolor{white}{$d_{4}$}};
+\node[below = 3em of d12.east, draw, circle, fill=Aquamarine,circular drop shadow] (d15) {\scriptsize\textcolor{red}{$d_{1}$}\textcolor{yellow}{$d_{2}$}\textcolor{green}{$d_{3}$}\textcolor{white}{$d_{4}$}};
+\draw[-latex] (d11) -- (d15);
+\draw[-latex] (d12) -- (d15);
+\draw[-latex] (d13) -- (d15);
+\draw[-latex] (d14) -- (d15);
+\node[below=7em of d12.east] {Regroupement};
+
+\node[right = 2ex of d14.east, draw,circle, fill=Aquamarine,circular drop shadow] (d16) {1};
+\node[right = 1ex of d16.east, draw,circle, fill=Aquamarine,circular drop shadow] (d17) {3};
+\node[right = 1ex of d17.east, draw,circle, fill=Aquamarine,circular drop shadow] (d18) {5};
+\node[right = 1ex of d18.east, draw,circle, fill=Aquamarine,circular drop shadow] (d19) {7};
+\node[below = 3em of d17.east, draw, circle, fill=Aquamarine,circular drop shadow] (d20) {16};
+\draw[-latex] (d16) -- (d20);
+\draw[-latex] (d17) -- (d20);
+\draw[-latex] (d18) -- (d20);
+\draw[-latex] (d19) -- (d20);
+\node[below=7em of d17.east] {Réduction};
+
+\end{tikzpicture}
+\end{center}
+\caption{Les différents échanges de messages collectifs}
+\end{figure}
+
+Les communications collectives mettent en {\oe}uvre toutes les tâches
+appartenant à un même groupe de communication
+\begin{itemize}
+\item Toutes les tâches lancées par l'utilisateur en utilisant
+\texttt{MPI\_COMM\_WORLD};
+\item Un sous-ensemble de tâches si on a défini un nouveau 
+communicateur ne prenant en compte que ce sous-ensemble 
+%( voir \ref{subsec::comm} )
+\end{itemize}
+
+Des comportements aléatoires peuvent avoir lieu, dont un plantage du
+code, si même une seule tâche du communicateur n'appelle pas la
+fonction.
+
+C'est de la responsabilité du programmeur de s'assurer que toutes les
+tâches du communicateur utilisé appellent la fonction de communication
+collective.
+
+
+Les communications collectives ne prennent pas d'identificateur en arguments.
+
+Si on veut exécuter une communication collective sur un sous-ensemble de tâches, il faut tout d'abord partitionner un groupe de tâches en sous-ensembles puis associer ces groupes à des communicateurs ( voir %ref à faire 
+
+À partir de la norme MPI 3 on peut choisir entre des communications collectives bloquantes ou non bloquantes.
+
+\paragraph{Fonctions de communications collectives}
+
+\begin{itemize}
+\item \textcolor{blue}{\tt MPI\_Barrier}
+
+Opération de synchronisation. Crée une barrière de synchronisation dans un groupe. Chaque tâche, lorsqu'elle atteint l'appel au \texttt{MPI\_Barrier}, bloque jusqu'à ce que toutes les tâches du groupe  atteignent le même appel à \texttt{MPI\_Barrier}. Alors toutes les tâches peuvent continuer à travailler. 
+
+\fbox{\texttt{MPI\_Barrier (comm)}}
+
+\item \textcolor{blue}{\tt MPI\_Bcast}
+
+Opération de mouvement de données. Diffuse ( envoie ) un message de la tâche ayant le rang "root" à toutes les autres tâches du groupe. 
+
+\begin{center}
+\begin{tikzpicture}
+\node[draw, circle split, fill=Aquamarine,circular drop shadow] (d0) {0 \nodepart{lower}\textcolor{red}{$d_{1}$}\textcolor{green}{$d_{2}$}};
+\node[right = 1ex of d0.east, draw,circle split, fill=Aquamarine,circular drop shadow] (d1) {1 \nodepart{lower}\phantom{\textcolor{red}{$d_{1}$}\textcolor{green}{$d_{2}$}}};
+\node[right = 1ex of d1.east, draw,circle split, fill=Aquamarine,circular drop shadow] (d2) {2 \nodepart{lower}\phantom{\textcolor{red}{$d_{1}$}\textcolor{green}{$d_{2}$}}};
+\node[right = 1ex of d2.east, draw,circle split, fill=Aquamarine,circular drop shadow] (d3) {3 \nodepart{lower}\phantom{\textcolor{red}{$d_{1}$}\textcolor{green}{$d_{2}$}}};
+\node[right = 1ex of d3.east, draw,circle split, fill=Aquamarine,circular drop shadow] (d4) {4 \nodepart{lower}\phantom{\textcolor{red}{$d_{1}$}\textcolor{green}{$d_{2}$}}};
+
+\node[below = 4em of d0.south, draw,circle split, fill=Aquamarine,circular drop shadow] (d5) {0 \nodepart{lower}\textcolor{red}{$d_{1}$}\textcolor{green}{$d_{2}$}};
+\node[right = 1ex of d5.east, draw,circle split, fill=Aquamarine,circular drop shadow] (d6) {1 \nodepart{lower}\textcolor{red}{$d_{1}$}\textcolor{green}{$d_{2}$}};
+\node[right = 1ex of d6.east, draw,circle split, fill=Aquamarine,circular drop shadow] (d7) {2 \nodepart{lower}\textcolor{red}{$d_{1}$}\textcolor{green}{$d_{2}$}};
+\node[right = 1ex of d7.east, draw,circle split, fill=Aquamarine,circular drop shadow] (d8) {3 \nodepart{lower}\textcolor{red}{$d_{1}$}\textcolor{green}{$d_{2}$}};
+\node[right = 1ex of d8.east, draw,circle split, fill=Aquamarine,circular drop shadow] (d9) {4 \nodepart{lower}\textcolor{red}{$d_{1}$}\textcolor{green}{$d_{2}$}};
+
+\draw[-latex,draw,red] (d2) -- (d7) node[midway, right]{MPI\_Bcast(d,2,..., 0, ...)};
+\end{tikzpicture}
+\end{center}
+
+\fbox{\texttt{MPI\_Bcast (\&buffer, count, datatype, root, comm)}}
+
+\item \textcolor{blue}{\tt MPI\_Scatter}
+
+Opération de mouvement de données. Distribue ( en partitionnant )  des données distinctes d'une seule
+tâche source "root" vers chaque tâche du groupe.
+
+\begin{center}
+\begin{tikzpicture}
+\node[draw, circle split, fill=Aquamarine,circular drop shadow] (d0) {0 \nodepart{lower}\textcolor{red}{$d_{1}$}\textcolor{green}{$d_{2}$}\textcolor{yellow}{$d_{3}$}};
+\node[right = 1ex of d0.east, draw,circle split, fill=Aquamarine,circular drop shadow] (d1) {1 \nodepart{lower}\phantom{\textcolor{red}{$d_{1}$}\textcolor{green}{$d_{2}$}\textcolor{red}{$d_{3}$}}};
+\node[right = 1ex of d1.east, draw,circle split, fill=Aquamarine,circular drop shadow] (d2) {2 \nodepart{lower}\phantom{\textcolor{red}{$d_{1}$}\textcolor{green}{$d_{2}$}\textcolor{red}{$d_{3}$}}};
+
+\node[below = 4em of d0.south, draw,circle split, fill=Aquamarine,circular drop shadow] (d5) {0 \nodepart{lower}\textcolor{red}{$d_{1}$}\phantom{\textcolor{red}{$d_{2}$}\textcolor{green}{$d_{3}$}}};
+\node[right = 1ex of d5.east, draw,circle split, fill=Aquamarine,circular drop shadow] (d6) {1 \nodepart{lower}\textcolor{green}{$d_{2}$}\phantom{\textcolor{red}{$d_{1}$}\textcolor{green}{$d_{3}$}}};
+\node[right = 1ex of d6.east, draw,circle split, fill=Aquamarine,circular drop shadow] (d7) {2 \nodepart{lower}\textcolor{yellow}{$d_{3}$}\phantom{\textcolor{red}{$d_{1}$}\textcolor{green}{$d_{2}$}}};
+
+\draw[-latex,draw,red] (d1) -- (d6) node[midway, right]{MPI\_Scatter(d,1,..., d, 1, ..., 0, ...)};
+\end{tikzpicture}
+\end{center}
+
+\fbox{\texttt{MPI\_Scatter (\&sendbuf, sendcnt, sendtype, \&recvbuf, recvcnt, recvtype, root, comm)}}
+
+\item \textcolor{blue}{\tt MPI\_Gather}
+
+Opération de mouvement de données. Rassemble différentes données provenant de chaque tâche du groupe dans une seule tâche destinataire "root". Cette fonction est l'opération inverse de \texttt{MPI\_Scatter}.
+
+\begin{center}
+\begin{tikzpicture}
+\node[draw, circle split, fill=Aquamarine,circular drop shadow] (d0) {0 \nodepart{lower}\textcolor{red}{$d_{1}$}\textcolor{green}{$d_{2}$}\textcolor{yellow}{$d_{3}$}};
+\node[right = 1ex of d0.east, draw,circle split, fill=Aquamarine,circular drop shadow] (d1) {1 \nodepart{lower}\phantom{\textcolor{red}{$d_{1}$}\textcolor{green}{$d_{2}$}\textcolor{red}{$d_{3}$}}};
+\node[right = 1ex of d1.east, draw,circle split, fill=Aquamarine,circular drop shadow] (d2) {2 \nodepart{lower}\phantom{\textcolor{red}{$d_{1}$}\textcolor{green}{$d_{2}$}\textcolor{red}{$d_{3}$}}};
+
+\node[above = 4em of d0.north, draw,circle split, fill=Aquamarine,circular drop shadow] (d5) {0 \nodepart{lower}\textcolor{red}{$d_{1}$}\phantom{\textcolor{red}{$d_{2}$}\textcolor{green}{$d_{3}$}}};
+\node[right = 1ex of d5.east, draw,circle split, fill=Aquamarine,circular drop shadow] (d6) {1 \nodepart{lower}\textcolor{green}{$d_{2}$}\phantom{\textcolor{red}{$d_{1}$}\textcolor{green}{$d_{3}$}}};
+\node[right = 1ex of d6.east, draw,circle split, fill=Aquamarine,circular drop shadow] (d7) {2 \nodepart{lower}\textcolor{yellow}{$d_{3}$}\phantom{\textcolor{red}{$d_{1}$}\textcolor{green}{$d_{2}$}}};
+
+\draw[-latex,draw,red] (d6) -- (d1) node[midway, right]{MPI\_Gather(d,1,...,d,1,..., 0, ...)};
+\end{tikzpicture}
+\end{center}
+
+\fbox{MPI\_Gather (\&sendbuf, sendcnt, sendtype, \&recvbuf, recvcnt, recvtype, root, comm )}\
+
+\item \textcolor{blue}{\tt MPI\_Allgather}
+
+Opération de mouvement de données. Concaténation des données sur toutes les tâches dans un groupe. Chaque tâche dans le groupe, en effet, effectue une diffusion une tâche vers toutes dans le groupe.
+
+\begin{center}
+\begin{tikzpicture}
+\node[draw, circle split, fill=Aquamarine,circular drop shadow] (d0) {0 \nodepart{lower}\textcolor{red}{$d_{1}$}\textcolor{green}{$d_{2}$}\textcolor{yellow}{$d_{3}$}};
+\node[right = 1ex of d0.east, draw,circle split, fill=Aquamarine,circular drop shadow] (d1) {1 \nodepart{lower}\textcolor{red}{$d_{1}$}\textcolor{green}{$d_{2}$}\textcolor{yellow}{$d_{3}$}};
+\node[right = 1ex of d1.east, draw,circle split, fill=Aquamarine,circular drop shadow] (d2) {2 \nodepart{lower}\textcolor{red}{$d_{1}$}\textcolor{green}{$d_{2}$}\textcolor{yellow}{$d_{3}$}};
+
+\node[above = 4em of d0.north, draw,circle split, fill=Aquamarine,circular drop shadow] (d5) {0 \nodepart{lower}\textcolor{red}{$d_{1}$}\phantom{\textcolor{red}{$d_{2}$}\textcolor{green}{$d_{3}$}}};
+\node[right = 1ex of d5.east, draw,circle split, fill=Aquamarine,circular drop shadow] (d6) {1 \nodepart{lower}\textcolor{green}{$d_{2}$}\phantom{\textcolor{red}{$d_{1}$}\textcolor{green}{$d_{3}$}}};
+\node[right = 1ex of d6.east, draw,circle split, fill=Aquamarine,circular drop shadow] (d7) {2 \nodepart{lower}\textcolor{yellow}{$d_{3}$}\phantom{\textcolor{red}{$d_{1}$}\textcolor{green}{$d_{2}$}}};
+
+\draw[-latex,draw,red] (d6) -- (d1) node[midway, right]{MPI\_Allgather(d,1,...,d,1,..., ...)};
+\end{tikzpicture}
+\end{center}
+
+\fbox{\texttt{MPI\_Allgather (\&sendbuf, sendcnt, sendtype, \&recvbuf, recvcnt, recvtype, comm )}}
+
+\item \textcolor{blue}{\tt MPI\_Reduce}
+
+Opération de calcul collectif. Applique une opération de réduction sur toutes les tâches du groupe et place le résultat dans une tâche.
+
+\begin{center}
+\begin{tikzpicture}
+\node[draw, circle,fill=Aquamarine,circular drop shadow, label={[blue]right:\begin{tabular}{|c|c|}\hline 5 & 1 \\ \hline\end{tabular}}] (t0) {0};
+\node[right = 10ex of t0.east, draw, circle,fill=Aquamarine,circular drop shadow, label={[blue]right:\begin{tabular}{|c|c|}\hline 2 & 3 \\ \hline\end{tabular}}] (t1) {1};
+\node[right = 10ex of t1.east, draw, circle,fill=Aquamarine,circular drop shadow, label={[blue]right:\begin{tabular}{|c|c|}\hline 7 & 8 \\ \hline\end{tabular}}] (t2) {2};
+\node[right = 10ex of t2.east, draw, circle,fill=Aquamarine,circular drop shadow, label={[blue]right:\begin{tabular}{|c|c|}\hline 4 & 2 \\ \hline\end{tabular}}] (t3) {3};
+\node[below= 3em of t2.south, draw, rounded corners,color=red, inner sep=2ex] (op) {\textcolor{red}{\tt MPI\_SUM}};
+\node[below = 3em of op.south, draw, circle,fill=Aquamarine,circular drop shadow, label={[blue]right:\begin{tabular}{|c|c|}\hline 18 & 14 \\ \hline\end{tabular}}] (t01) {0};
+\draw[-latex,blue] (t0) -- (op);
+\draw[-latex,blue] (t1) -- (op);
+\draw[-latex,blue] (t2) -- (op);
+\draw[-latex,blue] (t3) -- (op);
+\draw[-latex,blue] (op) -- (t01);
+\end{tikzpicture}
+\end{center}
+
+\fbox{\tt MPI\_Reduce (\&sendbuf, \&recvbuf, count, datatype, op, root, comm )}
+
+Les opérations de réduction MPI prédéfinies sont données dans la table ci-dessous. Le programmeur peut également définir ses propres fonctions de réduction à l'aide de la fonction {\tt MPI\_Op\_create}.
+
+\begin{center}
+\begin{tabular}{|>{\columncolor{cyan}} l | l | l |}\hline
+\rowcolor{Aquamarine} \multicolumn{2}{|c|}{ Opération de réduction MPI} & Type de données C \\  \hline
+{\tt MPI\_MAX} & Maximum & Entiers, Réels \\ \hline
+{\tt MPI\_MIN} & Minimum & Entiers, Réels \\ \hline
+{\tt MPI\_SUM} & Somme   & Entiers, Réels \\ \hline
+{\tt MPI\_PROD} & Produit & Entiers, Réels \\ \hline
+{\tt MPI\_LAND} & ET logique & Entiers     \\ \hline
+{\tt MPI\_BAND} & ET par bit & Entiers, {\tt MPI\_BYTE}     \\ \hline
+{\tt MPI\_LOR} & OU logique & Entiers \\ \hline
+{\tt MPI\_BOR} & OU par bit & Entiers, {\tt MPI\_BYTE} \\ \hline
+{\tt MPI\_LXOR} & OU exclusif logique & Entiers \\ \hline
+{\tt MPI\_BXOR} & OU exclusif bit à bit & Entiers, {\tt MPI\_BYTE} \\ \hline
+{\tt MPI\_MAXLOC} & Valeur maximale et location & float, double et long double \\ \hline
+{\tt MPI\_MINLOC} & Valeur minimale et location & float, double et long double \\ \hline
+\end{tabular}
+\end{center}
+
+\item \textcolor{blue}{\tt MPI\_Allreduce}
+
+Opération de calcul collectif et de déplacement de données. Applique une opération de réduction et diffuse le résultat dans toutes les tâches du groupe. Cette fonction est équivalente à appeler une fonction de réduction suivi d'un appel à {\tt MPI\_Bcast}.
+
+\begin{center}
+\begin{tikzpicture}
+\node[draw, circle,fill=Aquamarine,circular drop shadow, label={[blue]right:\begin{tabular}{|c|c|}\hline 5 & 1 \\ \hline\end{tabular}}] (t0) {0};
+\node[right = 10ex of t0.east, draw, circle,fill=Aquamarine,circular drop shadow, label={[blue]right:\begin{tabular}{|c|c|}\hline 2 & 3 \\ \hline\end{tabular}}] (t1) {1};
+\node[right = 10ex of t1.east, draw, circle,fill=Aquamarine,circular drop shadow, label={[blue]right:\begin{tabular}{|c|c|}\hline 7 & 8 \\ \hline\end{tabular}}] (t2) {2};
+\node[right = 10ex of t2.east, draw, circle,fill=Aquamarine,circular drop shadow, label={[blue]right:\begin{tabular}{|c|c|}\hline 4 & 2 \\ \hline\end{tabular}}] (t3) {3};
+\node[below= 2em of t2.south, draw, rounded corners,color=red, inner sep=2ex] (op) {\textcolor{red}{\tt MPI\_SUM}};
+\node[below = 6em of t0.south, draw, circle,fill=Aquamarine,circular drop shadow, label={[blue]right:\scriptsize\begin{tabular}{|c|c|}\hline 18 & 14 \\ \hline\end{tabular}}] (t01) {0};
+\node[below = 6em of t1.south, draw, circle,fill=Aquamarine,circular drop shadow, label={[blue]right:\scriptsize\begin{tabular}{|c|c|}\hline 18 & 14 \\ \hline\end{tabular}}] (t11) {1};
+\node[below = 6em of t2.south, draw, circle,fill=Aquamarine,circular drop shadow, label={[blue]right:\scriptsize\begin{tabular}{|c|c|}\hline 18 & 14 \\ \hline\end{tabular}}] (t21) {2};
+\node[below = 6em of t3.south, draw, circle,fill=Aquamarine,circular drop shadow, label={[blue]right:\scriptsize\begin{tabular}{|c|c|}\hline 18 & 14 \\ \hline\end{tabular}}] (t31) {3};
+\draw[-latex,blue] (t0) -- (op);
+\draw[-latex,blue] (t1) -- (op);
+\draw[-latex,blue] (t2) -- (op);
+\draw[-latex,blue] (t3) -- (op);
+\draw[-latex,blue] (op) -- (t01);
+\draw[-latex,blue] (op) -- (t11);
+\draw[-latex,blue] (op) -- (t21);
+\draw[-latex,blue] (op) -- (t31);
+\end{tikzpicture}
+\end{center}
+
+\fbox{\tt MPI\_Allreduce (\&sendbuf, \&recvbuf, count, datatype, op, comm )}
+
+\item \textcolor{blue}{\tt MPI\_Reduce\_scatter}
+
+Opération de calcul collectif et de déplacement de données. Effectue en premier une réduction élément par élément sur un vecteur sur toutes les tâches du groupe puis partitionne le vecteur résultat  pour le distribuer parmi les tâches du groupe. 
+
+\fbox{\tt MPI\_Reduce\_scatter (\&sendbuf, \&recvbuf, recvcnt, datatype, op, comm )}
+
+\item \textcolor{blue}{\tt MPI\_Alltoall}
+
+Opération de mouvement de données collective. Chaque tâche dans le groupe effectue une opération de diffusion, envoyant un message distinct à toutes les tâches du groupe dans l'ordre par index.
+
+\begin{center}
+\begin{tikzpicture}
+\node[draw, circle split, fill=Aquamarine,circular drop shadow] (d0) {0 \nodepart{lower}\textcolor{red}{$d_{11}$}\textcolor{green}{$d_{12}$}\textcolor{yellow}{$d_{13}$}};
+\node[right = 1ex of d0.east, draw,circle split, fill=Aquamarine,circular drop shadow] (d1) {1 \nodepart{lower}\textcolor{red}{$d_{21}$}\textcolor{green}{$d_{22}$}\textcolor{yellow}{$d_{23}$}};
+\node[right = 1ex of d1.east, draw,circle split, fill=Aquamarine,circular drop shadow] (d2) {2 \nodepart{lower}\textcolor{red}{$d_{31}$}\textcolor{green}{$d_{32}$}\textcolor{yellow}{$d_{33}$}};
+
+\node[above = 4em of d0.north, draw,circle split, fill=Aquamarine,circular drop shadow] (d5) {0 \nodepart{lower}\textcolor{red}{$d_{11}$}\textcolor{red}{$d_{21}$}\textcolor{red}{$d_{31}$}};
+\node[right = 1ex of d5.east, draw,circle split, fill=Aquamarine,circular drop shadow] (d6) {1 \nodepart{lower}\textcolor{green}{$d_{12}$}\textcolor{green}{$d_{22}$}\textcolor{green}{$d_{32}$}};
+\node[right = 1ex of d6.east, draw,circle split, fill=Aquamarine,circular drop shadow] (d7) {2 \nodepart{lower}\textcolor{yellow}{$d_{13}$}\textcolor{yellow}{$d_{23}$}\textcolor{yellow}{$d_{33}$}};
+
+\draw[-latex,draw,red] (d6) -- (d1) node[midway, right]{MPI\_Alltoall(d,1,...,d,1,..., ...)};
+\end{tikzpicture}
+\end{center}
+
+\fbox{\tt MPI\_Alltoall ( \&sendbuf, sendcnt, sendtype, \&recvbuf, recvcnt, recvtype, comm )}
+
+\item \textcolor{blue}{\tt MPI\_Scan}
+
+Effectue une opération de balayage par rapport à une opération de réduction au travers d'un groupe de tâches.
+
+\begin{center}
+\begin{tikzpicture}
+\node[draw, circle,fill=Aquamarine,circular drop shadow, label={[blue]right:\begin{tabular}{|c|c|}\hline 5 & 1 \\ \hline\end{tabular}}] (t0) {0};
+\node[right = 10ex of t0.east, draw, circle,fill=Aquamarine,circular drop shadow, label={[blue]right:\begin{tabular}{|c|c|}\hline 2 & 3 \\ \hline\end{tabular}}] (t1) {1};
+\node[right = 10ex of t1.east, draw, circle,fill=Aquamarine,circular drop shadow, label={[blue]right:\begin{tabular}{|c|c|}\hline 7 & 8 \\ \hline\end{tabular}}] (t2) {2};
+\node[right = 10ex of t2.east, draw, circle,fill=Aquamarine,circular drop shadow, label={[blue]right:\begin{tabular}{|c|c|}\hline 4 & 2 \\ \hline\end{tabular}}] (t3) {3};
+\node[below= 2em of t2.south, draw, rounded corners,color=red, inner sep=2ex] (op) {\textcolor{red}{\tt MPI\_SUM}};
+\node[below = 6em of t0.south, draw, circle,fill=Aquamarine,circular drop shadow, label={[blue]right:\scriptsize\begin{tabular}{|c|c|}\hline 5 & 1 \\ \hline\end{tabular}}] (t01) {0};
+\node[below = 6em of t1.south, draw, circle,fill=Aquamarine,circular drop shadow, label={[blue]right:\scriptsize\begin{tabular}{|c|c|}\hline 7 & 4 \\ \hline\end{tabular}}] (t11) {1};
+\node[below = 6em of t2.south, draw, circle,fill=Aquamarine,circular drop shadow, label={[blue]right:\scriptsize\begin{tabular}{|c|c|}\hline 14 & 12 \\ \hline\end{tabular}}] (t21) {2};
+\node[below = 6em of t3.south, draw, circle,fill=Aquamarine,circular drop shadow, label={[blue]right:\scriptsize\begin{tabular}{|c|c|}\hline 18 & 14 \\ \hline\end{tabular}}] (t31) {3};
+\draw[-latex,blue] (t0) -- (op);
+\draw[-latex,blue] (t1) -- (op);
+\draw[-latex,blue] (t2) -- (op);
+\draw[-latex,blue] (t3) -- (op);
+\draw[-latex,blue] (op) -- (t01);
+\draw[-latex,blue] (op) -- (t11);
+\draw[-latex,blue] (op) -- (t21);
+\draw[-latex,blue] (op) -- (t31);
+\end{tikzpicture}
+\end{center}
+
+\fbox{\tt MPI\_Scan ( \&sendbuf, \&recvbuf, count, datatype, op, comm )}
+
+\end{itemize}
+
+\underline{Exemple} : Distribue les lignes d'un tableau 
+
+\begin{lstlisting}
+   #include "mpi.h"
+   #include <stdio.h>
+   #define SIZE 4
+
+   main(int argc, char *argv[])  {
+   int numtasks, rank, sendcount, recvcount, source;
+   float sendbuf[SIZE][SIZE] = {
+     {1.0, 2.0, 3.0, 4.0},
+     {5.0, 6.0, 7.0, 8.0},
+     {9.0, 10.0, 11.0, 12.0},
+     {13.0, 14.0, 15.0, 16.0}  };
+   float recvbuf[SIZE];
+
+   MPI_Init(&argc,&argv);
+   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+   MPI_Comm_size(MPI_COMM_WORLD, &numtasks);
+
+   if (numtasks == SIZE) {
+     // define source task and elements to send/receive, then perform collective scatter
+     source = 1;
+     sendcount = SIZE;
+     recvcount = SIZE;
+     MPI_Scatter(sendbuf,sendcount,MPI_FLOAT,recvbuf,recvcount,
+                 MPI_FLOAT,source,MPI_COMM_WORLD);
+
+     printf("rank= %d  Results: %f %f %f %f\n",rank,recvbuf[0],
+            recvbuf[1],recvbuf[2],recvbuf[3]);
+     }
+   else
+     printf("Must specify %d processors. Terminating.\n",SIZE);
+
+   MPI_Finalize();
+}
+\end{lstlisting}
+
+\subsection{Fonctions de gestion de groupes et de communicateurs}
+
+\paragraph{Groupes et communicateurs}
+\begin{itemize}
+\item Un groupe est un ensemble ordonné de tâches. On associe un rang unique à chaque tâche dans le groupe. La valeur du rang est comprise entre 0 et N-1 où N est le nombre de tâches dans le groupe. Dans MPI, un groupe est représenté par un objet en mémoire uniquement accessible par le programmeur à l'aide d'une ``poignée''. Un groupe est toujours associé avec un objet communicateur.
+
+\item Un communicateur englobe un groupe de tâches qui vont devoir communiquer entre elles. Tout message MPI doit spécifier un communicateur. Dans le sens le plus simple, le communicateur est un
+identifiant supplémentaire obligatoire pour les messages MPI. Comme les groupes, les communicateurs sont representés comme des objets uniquement accessibles par le programmeur
+à l'aide d'une ``poignée''. Par exemple, la poignée pour le communicateur contenant toutes les tâches est \texttt{MPI\_COMM\_WORLD}.
+
+\item Du point de vue du programmeur, un groupe et un communicateur sont identiques. Les fonctions de manipulation de groupes sont uniquement utilisées pour désigner les tâches servant à construire le communicateur.
+
+\end{itemize}
+
+\paragraph{Utilités primaires des groupes et des communicateurs}
+
+\begin{enumerate}
+\item Vous permet d'organiser les tâches selon des fonctions en groupes de tâches;
+\item Permet d'utiliser les communications collectives sur un sous-ensemble de tâches;
+\item Permet des communications sécurisées.
+\end{enumerate}
+
+\paragraph{Considération de programmation et restrictions}
+\begin{itemize}
+\item Les groupes/communicateurs sont dynamiques : ils ne peuvent être créés ou détruits que pendant l'exécution du programme.
+\item Les tâches peuvent appartenir à plusieurs groupes/communicateurs. Elles auront un identifiant de rang unique pour chaque groupe/communicateur.
+\item Plus de quarante fonctions sont disponibles pour manipuler les groupes et les communicateurs.
+\item Programmation typique :
+\begin{enumerate}
+\item Récupérer la poignée du groupe global associé à \texttt{MPI\_COMM\_WORLD} en faisant appel à la fonction \texttt{MPI\_Comm\_group};
+\item Créer un nouveau groupe en tant que sous-ensemble du groupe global en appelant \texttt{MPI\_Group\_incl};
+\item Créer un  nouveau communicateur pour le nouveau groupe en utilisant \texttt{MPI\_Comm\_create};
+\item Déterminer le rang de la tâche dans le nouveau communicateur en utilisant \texttt{MPI\_Comm\_rank};
+\item Utiliser le nouveau communicateur dans votre programme;
+\item Quand le nouveau communicateur n'est plus utilisé, détruire le nouveau communicateur et éventuellement son groupe associé en appelant \texttt{MPI\_Comm\_free} et \texttt{MPI\_Group\_free}.
+\end{enumerate}
+\item Pour effectuer une partition des tâches au travers de plusieurs communicateurs, on utilisera plutôt \texttt{MPI\_Comm\_split}.
+\end{itemize}
+
+\underline{Exemple} : Créer deux communicateurs : un pour les tâches de rang pair dans le communicateur global
+et l'autre pour les tâches de rang impair.
+
+\begin{lstlisting}
+#include "mpi.h"
+#include <stdio.h>
+
+int  main(int argc, char *argv[])  {
+   int        rank, new_rank, sendbuf, recvbuf, numtasks;
+   MPI_Comm   new_comm;   // required variable
+
+   MPI_Init(&argc,&argv);
+   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+   MPI_Comm_size(MPI_COMM_WORLD, &numtasks);
+
+   if (rank%2 == 0 )
+     MPI_Comm_split( MPI_COMM_WORLD, 0, rank, &new_comm );
+   else
+     MPI_Comm_split( MPI_COMM_WORLD, 1, rank, &new_comm );
+
+   sendbuf = rank;
+
+   MPI_Allreduce(&sendbuf, &recvbuf, 1, MPI_INT, MPI_SUM, new_comm);
+
+   // get rank in new communicator
+   MPI_Comm_rank (new_comm, &new_rank);
+   printf("rank= %d newrank= %d recvbuf= %d\n",rank,new_rank,recvbuf);
+
+   MPI_Finalize();
+   return 0;
+}
+\end{lstlisting}
+
+\section{Exercices à rendre}
+
+\subsection{Question du cours}
+
+Reprendre l'exercice sur l'interblocage donné dans le cours et décrivez deux scénarios :
+\begin{enumerate}
+    \item Un premier scénario où il n'y a pas d'interblocage;
+    \item Un deuxième scénario où il y a interblocage.
+\end{enumerate}
+
+Quelle est à votre avis la probabilité d'avoir un interblocage ?
+
+\subsection{Question du cours n°2}
+
+Alice a parallélisé en partie un code sur machine à mémoire distribuée. Pour un jeu de données spécifiques,
+elle remarque que la partie qu'elle exécute en parallèle représente en temps de traitement 90\% du
+temps d'exécution du programme en séquentiel.
+
+En utilisant la loi d'Amdhal, pouvez-vous prédire l'accélération maximale que pourra obtenir Alice
+avec son code (en considérant $n\gg 1$) ? 
+
+À votre avis, pour ce jeu de donné spécifique, quel nombre de n{\oe}uds de calcul semble-t-il
+raisonnable de prendre pour ne pas trop gaspiller de ressources CPU ?
+
+En effectuant son cacul sur son calculateur, Alice s'aperçoit qu'elle obtient une accélération
+maximale de quatre en augmentant le nombre de n{\oe}uds de calcul pour son jeu spécifique de données.
+
+En doublant la quantité de donnée à traiter, et en supposant la complexité de l'algorithme parallèle
+linéaire, quelle accélération maximale peut espérer Alice en
+utilisant la loi de Gustafson ?
+
+\subsection{Ensemble de mandelbrot}
+
+L'ensemble de Mandelbrot est un ensemble fractal inventé par Benoit Mandelbrot permettant d'étudier  la convergence ou la rapidité de divergence dans le plan complexe de la suite récursive 
+$$
+\left\{\begin{array}{l}
+c \mbox{ valeurs complexe donnée } \\
+z_{0} = 0\\
+z_{n+1} = z_{n}^{2} + c
+\end{array}\right.
+$$
+en fonction de $c$.
+
+On montre facilement que si il existe un $N$ tel que $|z_{N}| > 2$, alors la suite diverge. 
+
+L'ensemble de Mandelbrot consiste à calculer une image de $W \times H$ pixels telle qu'à chaque pixel $\left(p_{i},p_{j}\right)$ de l'espace image, on associe une valeur complexe
+$c = x_{\min}+p_{i} \frac{x_{\max}-x_{\min}}{W} +  i \left (y_{\min}+p_{j} \frac{y_{\max}-y_{\min}}{H}\right)$.
+
+\begin{enumerate}
+\item À partir du code séquentiel \texttt{mandelbrot.cpp}, faire une partition équitable par ligne de l'image à calculer pour distribuer le calcul sur les \texttt{nbp} tâches exécutées par l'utilisateur puis rassembler l'image sur le processus zéro pour la sauvegarder. Calculer le temps d'exécution pour différents nombre de tâches et calculer le speedup. Comment interpréter les résultats obtenus ?
+\item Mettre en {\oe}uvre une stratégie maître--esclave pour distribuer les différentes lignes de l'image à calculer. Calculer le speedup avec cette nouvelle approche. Qu'en conclure ?
+\end{enumerate}
+
+\subsection{Produit matrice--vecteur}
+
+On considère le produit d'une matrice carrée $A$  de dimension $N$ par un vecteur $u$ de même dimension dans $\mathbb{R}$. La matrice est constituée des c{\oe}fficients définis par $A_{ij} = (i+j) \mod N$
+
+Par soucis de simplification, on supposera que $N$ est divisible par le nombre de tâches \texttt{nbp} exécutées.
+
+\begin{enumerate}
+\item \textbf{Produit parallèle  matrice -- vecteur par colonne}
+
+Afin de paralléliser le produit matrice--vecteur, on décide dans un premier temps de partitionner la matrice par un découpage par bloc de colonnes. Chaque tâche contiendra $N_{\mbox{loc}}$ colonnes de la matrice. Calculer en fonction du nombre de tâches la valeur de $N_{\mbox{loc}}$ puis paralléliser le code séquentiel \texttt{matvec.cpp} en veillant à ce que chaque tâche n'assemble que la partie de la matrice utile à sa somme partielle du produit matrice-vecteur. On s'assurera que toutes les tâches à la fin du programme contiennent le vecteur résultat complet.
+
+\item \textbf{Produit parallèle  matrice -- vecteur par ligne}
+
+Afin de paralléliser le produit matrice--vecteur, on décide dans un deuxième temps de partitionner la matrice par un découpage par bloc de lignes. Chaque tâche contiendra $N_{\mbox{loc}}$ lignes de la matrice. Calculer en fonction du nombre de tâches la valeur de $N_{\mbox{loc}}$ puis paralléliser le code séquentiel \texttt{matvec.cpp} en veillant à ce que chaque tâche n'assemble que la partie de la matrice utile à son produit matrice-vecteur partiel. On s'assurera que toutes les tâches à la fin du programme contiennent le vecteur résultat complet.
+.
+\end{enumerate}
+\end{document}
